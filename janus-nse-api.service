@@ -1,0 +1,29 @@
+[Unit]
+Description=Janus NSE API Server
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/janus/nse-backend
+EnvironmentFile=-/etc/janus/nse.env
+Environment=AGENT_DIR=/home/ubuntu/janus/nse-agent
+Environment=API_PORT=8443
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/ubuntu/janus/nse-backend/venv/bin/python api_server.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/janus/nse-agent /home/ubuntu/janus/nse-backend /run/janus
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
