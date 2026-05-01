@@ -5,7 +5,7 @@ BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
 API_PORT="${API_PORT:-8443}"
 
 echo "=========================================="
-echo "  AI Trading Agent - API Server"
+echo "  Janus - API Server"
 echo "  Backend host: ${BACKEND_HOST}"
 echo "=========================================="
 echo ""

@@ -1,4 +1,4 @@
-"""FastAPI server for AI Trading Agent — REST + WebSocket log streaming."""
+"""FastAPI server for Janus — REST + WebSocket log streaming."""
 
 import asyncio
 import json
@@ -436,7 +436,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AI Trading Agent API",
+    title="Janus API",
     version="1.0.0",
     lifespan=lifespan,
 )

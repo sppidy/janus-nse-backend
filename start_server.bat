@@ -3,7 +3,7 @@ setlocal
 if not defined BACKEND_HOST set "BACKEND_HOST=127.0.0.1"
 if not defined API_PORT set "API_PORT=8443"
 echo ==========================================
-echo   AI Trading Agent - API Server
+echo   Janus - API Server
 echo   Backend host: %BACKEND_HOST%
 echo ==========================================
 echo.

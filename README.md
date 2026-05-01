@@ -1,6 +1,6 @@
 # nse-backend
 
-FastAPI backend that wraps the [`nse-agent`](https://github.com/sppidy/nse-agent) and exposes it over HTTP + WebSocket. Part of [`trading-agent`](https://github.com/sppidy/trading-agent).
+FastAPI backend that wraps the [`nse-agent`](https://github.com/sppidy/janus-nse-agent) and exposes it over HTTP + WebSocket. Part of [`janus`](https://github.com/sppidy/janus).
 
 Single-user, in-memory job store (TTL 600s). Designed for personal deployment behind a private network or VPN.
 
@@ -35,8 +35,8 @@ For local dev only, set `ALLOW_INSECURE_API_TOKEN=1` and skip `API_AUTH_TOKEN`. 
 
 ## Deployment
 
-`ai-trader-api.service` is a sample systemd unit. Adjust `WorkingDirectory`, `AGENT_DIR`, and certificate paths to your environment. See [`docs/DEPLOY_SECURITY_NOTES.md`](https://github.com/sppidy/trading-agent/blob/main/docs/DEPLOY_SECURITY_NOTES.md) in the super repo for the hardening checklist (auth token, sudoers allowlist, self-signed TLS).
+`janus-nse-api.service` is a sample systemd unit. Adjust `WorkingDirectory`, `AGENT_DIR`, and certificate paths to your environment. See [`docs/DEPLOY_SECURITY_NOTES.md`](https://github.com/sppidy/janus/blob/main/docs/DEPLOY_SECURITY_NOTES.md) in the super repo for the hardening checklist (auth token, sudoers allowlist, self-signed TLS).
 
 ## License
 
-[Apache-2.0](LICENSE). Contributing guidelines and security policy live in the [super-repo](https://github.com/sppidy/trading-agent).
+[Apache-2.0](LICENSE). Contributing guidelines and security policy live in the [super-repo](https://github.com/sppidy/janus).

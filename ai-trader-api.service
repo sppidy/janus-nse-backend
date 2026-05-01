@@ -1,5 +1,5 @@
 [Unit]
-Description=AI Trading Agent API Server
+Description=Janus API Server
 After=network.target
 
 [Service]
