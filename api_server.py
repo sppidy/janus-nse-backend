@@ -1018,6 +1018,7 @@ def get_status(portfolio: str = "main"):
 
         return {
             "status": "ok",
+            "agent_name": getattr(config, "AGENT_NAME", "Janus"),
             "portfolio": portfolio,
             "portfolios_available": list(getattr(config, "PORTFOLIOS", {"main": 0}).keys()),
             "summary": summary,
