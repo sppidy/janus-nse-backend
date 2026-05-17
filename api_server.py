@@ -986,6 +986,25 @@ def _get_prices_for_trader(trader: PaperTrader | None = None) -> dict[str, float
     return get_watchlist_prices(_unique_symbols(symbols)) or {}
 
 
+def _get_active_ai_model() -> str:
+    try:
+        from ai_strategy import _provider_alive
+        env = os.environ.get
+        providers = [
+            ("copilot", "Claude Haiku (Copilot)", True),
+            ("openrouter", "OpenRouter", bool(env("OPENROUTER_API_KEY"))),
+            ("groq", "Groq", bool(env("GROQ_API_KEY"))),
+            ("cloudflare", "Cloudflare Workers AI", bool(env("CLOUDFLARE_API_TOKEN"))),
+            ("gemini", "Gemini", bool(env("GEMINI_API_KEY"))),
+        ]
+        for key, label, configured in providers:
+            if configured and _provider_alive(key):
+                return label
+    except Exception:
+        pass
+    return "AI Cascade"
+
+
 # ── REST Endpoints ──
 
 @app.get("/api/status")
@@ -1019,6 +1038,7 @@ def get_status(portfolio: str = "main"):
         return {
             "status": "ok",
             "agent_name": getattr(config, "AGENT_NAME", "Janus"),
+            "ai_model": _get_active_ai_model(),
             "portfolio": portfolio,
             "portfolios_available": list(getattr(config, "PORTFOLIOS", {"main": 0}).keys()),
             "summary": summary,
