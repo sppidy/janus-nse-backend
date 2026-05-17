@@ -259,10 +259,6 @@ class LogBroadcaster:
         self._tail_task: asyncio.Task | None = None
         self.handler = None
 
-    async def connect(self, ws: WebSocket):
-        await ws.accept()
-        self.clients.append(ws)
-
     def disconnect(self, ws: WebSocket):
         if ws in self.clients:
             self.clients.remove(ws)
@@ -385,11 +381,11 @@ def _systemctl(action: str) -> subprocess.CompletedProcess:
     )
 
 
-def _get_service_status() -> dict:
-    """Query systemd for the real autopilot service state."""
+def _get_service_status(service: str = AUTOPILOT_SERVICE, log_dir: str | None = None) -> dict:
+    """Query systemd for a service's state."""
     try:
         result = subprocess.run(
-            ["sudo", "/usr/bin/systemctl", "show", AUTOPILOT_SERVICE,
+            ["sudo", "/usr/bin/systemctl", "show", service,
              "--property=ActiveState,SubState,MainPID,ExecMainStartTimestamp"],
             capture_output=True, text=True, timeout=10,
         )
@@ -402,9 +398,8 @@ def _get_service_status() -> dict:
         running = props.get("ActiveState") == "active" and props.get("SubState") == "running"
         started_at = props.get("ExecMainStartTimestamp", "")
 
-        # Read cycle count from persistent file (written by autopilot each cycle)
         cycle = 0
-        cycle_file = os.path.join(config.PROJECT_DIR, "logs", "cycle_count.txt")
+        cycle_file = os.path.join(log_dir or config.PROJECT_DIR, "logs", "cycle_count.txt")
         if running:
             try:
                 with open(cycle_file, "r") as f:
@@ -566,10 +561,10 @@ def _resolve_timeframe(timeframe: str) -> tuple[str, str]:
     # frontend mixed cases, and it's easier to be lenient here than coordinate
     # every client.
     raw = (timeframe or "").strip()
-    tf = raw.lower()
     # legacy uppercase alias: '1M' used to mean 1 month, now '1mo'
-    if tf == "1M".lower() and "1M".lower() not in TIMEFRAME_TO_YF:
-        tf = "1mo"
+    if raw == "1M" and "1mo" in TIMEFRAME_TO_YF:
+        raw = "1mo"
+    tf = raw.lower()
     if tf not in TIMEFRAME_TO_YF:
         supported = ", ".join(TIMEFRAME_TO_YF.keys())
         raise HTTPException(
@@ -705,7 +700,6 @@ def _chat_call_openrouter(prompt: str) -> str:
 
 def _chat_call_groq(prompt: str) -> str:
     """Call Groq for chat (sync, fast)."""
-    import time as _time
     groq_key = os.environ.get("GROQ_API_KEY", "")
     if not groq_key:
         raise ValueError("GROQ_API_KEY not set")
@@ -800,7 +794,7 @@ def _chat_call_gemini(prompt: str) -> str:
                     break
                 else:
                     raise
-    return "All AI models are rate-limited right now. Try again in a minute."
+    raise ValueError("All Gemini models exhausted or rate-limited")
 
 
 def _build_chat_system_prompt() -> str:
@@ -884,52 +878,36 @@ def _get_chat_market_snapshot() -> str:
 
 def _execute_chat_command(user_input: str, trader: PaperTrader) -> str | None:
     lower = user_input.strip().lower()
-    if lower.startswith("buy "):
+    for side in ("buy", "sell"):
+        if not lower.startswith(side + " "):
+            continue
         parts = lower.split()
-        if len(parts) >= 2:
-            qty = None
-            symbol_token = parts[1]
-            if symbol_token.isdigit():
-                qty = int(symbol_token)
-                symbol_token = parts[2] if len(parts) >= 3 else ""
-            elif len(parts) >= 3 and parts[2].isdigit():
-                qty = int(parts[2])
-            symbol = symbol_token.strip(",;").upper()
-            if not symbol:
-                return "Please provide a symbol. Example: buy SBIN 10"
-            if not symbol.endswith(".NS"):
-                symbol += ".NS"
-            from data_fetcher import get_live_price
-            price = get_live_price(symbol)
-            if price is None or price <= 0:
-                return f"Could not fetch price for {symbol}."
-            order = trader.buy(symbol, price, quantity=qty)
-            if order:
-                return f"Bought {order.quantity}x {symbol} @ Rs.{order.fill_price():.2f}"
+        if len(parts) < 2:
+            break
+        qty = None
+        symbol_token = parts[1]
+        if symbol_token.isdigit():
+            qty = int(symbol_token)
+            symbol_token = parts[2] if len(parts) >= 3 else ""
+        elif len(parts) >= 3 and parts[2].isdigit():
+            qty = int(parts[2])
+        symbol = symbol_token.strip(",;").upper()
+        if not symbol:
+            return f"Please provide a symbol. Example: {side} SBIN 10"
+        if not symbol.endswith(".NS"):
+            symbol += ".NS"
+        from data_fetcher import get_live_price
+        price = get_live_price(symbol)
+        if price is None or price <= 0:
+            return f"Could not fetch price for {symbol}."
+        fn = trader.buy if side == "buy" else trader.sell
+        order = fn(symbol, price, quantity=qty)
+        if order:
+            verb = "Bought" if side == "buy" else "Sold"
+            return f"{verb} {order.quantity}x {symbol} @ Rs.{order.fill_price():.2f}"
+        if side == "buy":
             return f"Could not buy {symbol}. Check funds or position limits."
-    if lower.startswith("sell "):
-        parts = lower.split()
-        if len(parts) >= 2:
-            qty = None
-            symbol_token = parts[1]
-            if symbol_token.isdigit():
-                qty = int(symbol_token)
-                symbol_token = parts[2] if len(parts) >= 3 else ""
-            elif len(parts) >= 3 and parts[2].isdigit():
-                qty = int(parts[2])
-            symbol = symbol_token.strip(",;").upper()
-            if not symbol:
-                return "Please provide a symbol. Example: sell SBIN 10"
-            if not symbol.endswith(".NS"):
-                symbol += ".NS"
-            from data_fetcher import get_live_price
-            price = get_live_price(symbol)
-            if price is None or price <= 0:
-                return f"Could not fetch price for {symbol}."
-            order = trader.sell(symbol, price, quantity=qty)
-            if order:
-                return f"Sold {order.quantity}x {symbol} @ Rs.{order.fill_price():.2f}"
-            return f"Could not sell {symbol}. Check if you hold it."
+        return f"Could not sell {symbol}. Check if you hold it."
     return None
 
 
@@ -1867,10 +1845,10 @@ def _load_forex_modules():
             continue
         spec = importlib.util.spec_from_file_location(f"fx_{mod_name}", mod_path)
         mod = importlib.util.module_from_spec(spec)
-        # Inject forex config into sub-modules
-        if mod_name != "config" and "config" in loaded:
-            sys.modules["config"] = loaded["config"]
         try:
+            # Inject forex config into sub-modules
+            if mod_name != "config" and "config" in loaded:
+                sys.modules["config"] = loaded["config"]
             spec.loader.exec_module(mod)
         except Exception as e:
             logger.warning(f"Failed to load forex module {mod_name}: {e}")
@@ -1932,37 +1910,9 @@ if _fx:
                 "open": fx_cal.is_market_open(),
                 "sessions": sessions,
             },
-            "autopilot": _get_forex_autopilot_status(fx_config),
+            "autopilot": _get_service_status("forex-trading-agent.service", fx_config.PROJECT_DIR),
             "currency": "$",
         }
-
-    def _get_forex_autopilot_status(fx_config):
-        try:
-            import subprocess
-            result = subprocess.run(
-                ["sudo", "systemctl", "show", "forex-trading-agent.service",
-                 "--property=ActiveState,SubState,MainPID,ExecMainStartTimestamp"],
-                capture_output=True, text=True, timeout=5,
-            )
-            props = dict(line.split("=", 1) for line in result.stdout.strip().splitlines() if "=" in line)
-            running = props.get("ActiveState") == "active" and props.get("SubState") == "running"
-            cycle = 0
-            cycle_file = os.path.join(fx_config.PROJECT_DIR, "logs", "cycle_count.txt")
-            if running:
-                try:
-                    with open(cycle_file, "r") as f:
-                        cycle = int(f.read().strip())
-                except Exception:
-                    pass
-            return {
-                "running": running,
-                "cycle": cycle,
-                "started_at": props.get("ExecMainStartTimestamp", "") if running else None,
-                "interval": 15,
-                "pid": int(props.get("MainPID", 0)),
-            }
-        except Exception:
-            return {"running": False, "cycle": 0, "started_at": None, "interval": 15, "pid": 0}
 
     @forex_router.get("/prices")
     async def forex_prices(x_api_key: str | None = Header(default=None, alias="X-API-Key")):

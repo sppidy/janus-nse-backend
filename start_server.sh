@@ -18,4 +18,4 @@ echo ""
 
 export AGENT_DIR="${AGENT_DIR:-$(dirname "$0")/../../ai-trading-agent}"
 export API_PORT
-python api_server.py
+python3 api_server.py
